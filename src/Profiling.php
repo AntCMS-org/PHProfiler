@@ -42,7 +42,7 @@ function profilePrint()
         echo "<tr>";
         echo "<td style='border: 1px solid #ddd; padding: 8px; text-align: left;'>{$funcName}</td>";
         echo "<td style='border: 1px solid #ddd; padding: 8px; text-align: left;'>" . sprintf("%f", $elapsed) . "</td>";
-        echo "<td style='border: 1px solid #ddd; padding: 8px; text-align: left;'>" . sprintf("%d bytes", $prof_memory[$funcName]) . "</td>";
+        echo "<td style='border: 1px solid #ddd; padding: 8px; text-align: left;'>" . sprintf("%d bytes", $prof_memory[$funcName] ?? "Unknown") . "</td>";
         echo "</tr>";
     }
 
