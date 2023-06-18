@@ -1,59 +1,28 @@
 <?php
 
+declare(strict_types=1);
+
 namespace AntCMS;
 
 class PHPProfiler
 {
-    private int $backTraceLimit;
-    private string $mode;
-
-    private array $profiledData;
-
-    public static function globalProfilerOnCallable(callable $callable, array $args = [], string $functionName = ''): mixed
+    public static function profilerOnCallable(callable $callable, array $args = [], string $functionName = ''): mixed
     {
-        $profiler = new \AntCMS\PHPProfiler(20, 'global');
-        return $profiler->profilerOnCallable($callable, $args, $functionName);
-    }
+        global $profiledData;
 
-    public static function globalProfilerDumpHtml()
-    {
-        $profiler = new \AntCMS\PHPProfiler(20, 'global');
-        return $profiler->returnProfiledHtml();
-    }
-
-    public function __construct(int $backTraceLimit = 20, string $mode = 'scoped')
-    {
-        $this->backTraceLimit = $backTraceLimit;
-
-        if ($mode === 'global') {
-            global $profiledData;
-            if (empty($profiledData)) {
-                $profiledData = [];
-            }
-        } else if ($mode === 'scoped') {
-        } else {
-            throw new \Exception("Unknown profiling mode: $mode. Only 'global' and 'scoped' are acceptable.");
-        }
-        $this->mode = $mode;
-    }
-
-    public function profilerOnCallable(callable $callable, array $args = [], string $functionName = ''): mixed
-    {
-        if ($this->mode === 'global') {
-            global $profiledData;
-            $this->profiledData = &$profiledData;
+        if (empty($profiledData)) {
+            $profiledData = [];
         }
 
         $functionName = self::getCallableName($callable, $functionName);
-        $entryPoint = count($this->profiledData);
+        $entryPoint = count($profiledData);
 
         $loggedData = [
             'functionName' => $functionName,
             'startTimePoint' => hrtime(true),
-            'calledFunctions' => [],
         ];
 
-        $this->profiledData[$entryPoint] = $loggedData;
+        $profiledData[$entryPoint] = $loggedData;
 
         // Only available on PHP 8.2+, but by doing this, we can much more accurately measure the memory usage of a given function.
         if (function_exists('memory_reset_peak_usage')) {
@@ -64,26 +33,29 @@ class PHPProfiler
         $result = call_user_func_array($callable, $args);
         $elapsed = (hrtime(true) - $start) / 1e+6;
 
-        $loggedData['timeElapsed'] = $elapsed;
-        $loggedData['peakMemoryUsageReal'] = memory_get_peak_usage(true);
-        $loggedData['peakMemoryUsage'] = memory_get_peak_usage();
-        $loggedData['endTimePoint'] = hrtime(true);
+        $loggedData = [
+            'functionName' => $profiledData[$entryPoint]['functionName'],
+            'timeElapsed' => $elapsed,
+            'startTimePoint' => $profiledData[$entryPoint]['startTimePoint'],
+            'endTimePoint' => hrtime(true),
+            'peakMemoryUsageReal' => memory_get_peak_usage(true),
+            'peakMemoryUsage' => memory_get_peak_usage(),
+            'calledFunctions' => [],
 
-        $this->profiledData[$entryPoint] = $loggedData;
+        ];
+
+        $profiledData[$entryPoint] = $loggedData;
 
         return $result;
     }
 
-    public function returnProfiledHtml(): string
+    public static function returnProfiledHtml(array $removedProperties = ['startTimePoint', 'endTimePoint']): string
     {
-        if ($this->mode === 'global') {
-            global $profiledData;
-            $this->profiledData = $profiledData;
-        }
+        global $profiledData;
 
-        $this->processProfilerData($this->profiledData);
-        /*highlight_string("<?php\n\$data =\n" . var_export($this->profiledData, true) . ";\n?>");*/
-        return $this->displayArrayPropertiesAsHTML($this->profiledData);
+        self::processProfilerData($profiledData, $removedProperties);
+        /*highlight_string("<?php\n\$data =\n" . var_export($profiledData, true) . ";\n?>");*/
+        return self::displayArrayPropertiesAsHTML($profiledData);
     }
 
     private static function getCallableName(callable $callable, string $functionName): string
@@ -95,21 +67,21 @@ class PHPProfiler
         if (is_string($callable) && function_exists($callable)) {
             return trim($callable);
         } elseif (is_array($callable)) {
-            switch (strtolower($callable[0])) {
-                case 'self':
-                    return self::class . '::' . trim($callable[1]);
-                    break;
-                case 'this':
-                    return self::class . '->' . trim($callable[1]);
-                    break;
-                default:
-                    $MethodChecker = new \ReflectionMethod($callable[0], $callable[1]);
-                    if ($MethodChecker->isStatic()) {
-                        return trim($callable[0]) . '::' . trim($callable[1]);
-                    } else {
-                        return trim($callable[0]) . '->' . trim($callable[1]);
-                    }
+            $seperator = '->';
+            try {
+                $MethodChecker = new \ReflectionMethod($callable[0], $callable[1]);
+                if ($MethodChecker->isStatic()) {
+                    $seperator = '::';
+                }
+            } catch (\Exception $e) {
             }
+
+            if (is_object($callable[0])) {
+                return $callable[0]::class . $seperator . $callable[1];
+            } else {
+                return $callable[0] . $seperator . $callable[1];
+            }
+            return $callable[0]::class . '->' . $callable[1];
         } elseif ($callable instanceof \Closure) {
             return 'Closure.' . bin2hex(random_bytes(8));
         } else {
@@ -117,12 +89,16 @@ class PHPProfiler
         }
     }
 
-    private function processProfilerData(array &$data)
+    private static function processProfilerData(array &$data, array $removeProperties = [])
     {
         $count = count($data);
-        for ($i = $count - 1; $i > 0; $i--) {
+        for ($i = $count - 1; $i >= 0; $i--) {
             $start = $data[$i]['startTimePoint'];
             $end = $data[$i]['endTimePoint'];
+
+            foreach ($removeProperties as $key) {
+                unset($data[$i][$key]);
+            }
 
             $positionOffset = 1;
             while (($i - $positionOffset) >= 0 && isset($data[$i]) && $start > $data[$i - $positionOffset]['startTimePoint']) {
@@ -138,7 +114,7 @@ class PHPProfiler
         }
     }
 
-    private function displayArrayPropertiesAsHTML(array $array)
+    private static function displayArrayPropertiesAsHTML(array $array)
     {
         $html = '<ul>';
 
@@ -146,7 +122,7 @@ class PHPProfiler
             $html .= '<li>' . $key . ': ';
 
             if (is_array($value)) {
-                $html .= $this->displayArrayPropertiesAsHTML($value); // Recursive call for nested arrays
+                $html .= self::displayArrayPropertiesAsHTML($value); // Recursive call for nested arrays
             } else {
                 $html .= $value;
             }
@@ -155,7 +131,6 @@ class PHPProfiler
         }
 
         $html .= '</ul>';
-
         return $html;
     }
 }

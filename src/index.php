@@ -67,26 +67,26 @@ function sortArray($array)
 
 function callOtherFunctions()
 {
-    PHPProfiler::globalProfilerOnCallable('calculateFactorial', [5]);
-    PHPProfiler::globalProfilerOnCallable('findPrimeNumbers', [0, 300]);
-    PHPProfiler::globalProfilerOnCallable('fibonacci', [10]);
-    PHPProfiler::globalProfilerOnCallable('sortArray', [[5, 2, 8, 1, 0]]);
+    PHPProfiler::profilerOnCallable('calculateFactorial', [5]);
+    PHPProfiler::profilerOnCallable('findPrimeNumbers', [0, 300]);
+    PHPProfiler::profilerOnCallable('fibonacci', [10]);
+    PHPProfiler::profilerOnCallable('sortArray', [[5, 2, 8, 1, 0]]);
 }
 
 function callFuncUnderFunc()
 {
-    PHPProfiler::globalProfilerOnCallable('callOtherFunctions');
+    PHPProfiler::profilerOnCallable('callOtherFunctions');
 }
 
-//PHPProfiler::globalProfilerOnCallable('calculateFactorial', [5]);
-//PHPProfiler::globalProfilerOnCallable('findPrimeNumbers', [0, 300]);
-//PHPProfiler::globalProfilerOnCallable('fibonacci', [10]);
-//PHPProfiler::globalProfilerOnCallable('sortArray', [[5, 2, 8, 1, 0]]);
+//PHPProfiler::profilerOnCallable('calculateFactorial', [5]);
+//PHPProfiler::profilerOnCallable('findPrimeNumbers', [0, 300]);
+//PHPProfiler::profilerOnCallable('fibonacci', [10]);
+//PHPProfiler::profilerOnCallable('sortArray', [[5, 2, 8, 1, 0]]);
 
-//PHPProfiler::globalProfilerOnCallable('callOtherFunctions');
-//PHPProfiler::globalProfilerOnCallable('callFuncUnderFunc');
+//PHPProfiler::profilerOnCallable('callOtherFunctions');
+//PHPProfiler::profilerOnCallable('callFuncUnderFunc');
 
-PHPProfiler::globalProfilerOnCallable(['Self', 'globalProfilerOnCallable'], ['callOtherFunctions']);
+PHPProfiler::profilerOnCallable(['Self', 'profilerOnCallable'], ['callOtherFunctions']);
 
-
-echo PHPProfiler::globalProfilerDumpHtml();
+//echo PHPProfiler::returnProfiledHtml(['peakMemoryUsageReal', 'peakMemoryUsage', 'startTimePoint', 'endTimePoint']);
+echo PHPProfiler::returnProfiledHtml();
