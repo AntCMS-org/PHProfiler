@@ -7,41 +7,86 @@ use AntCMS\PHPProfiler;
 
 include "PHProfiler.php";
 
-function aFunc()
+function calculateFactorial($n)
 {
-    sleep(0.25);
-}
-
-function anotherFunc()
-{
-    sleep(0.25);
-}
-
-class testClass
-{
-    public static function wait()
-    {
-        sleep(1);
+    if ($n <= 1) {
+        return 1;
+    } else {
+        return $n * calculateFactorial($n - 1);
     }
 }
 
-//$profiler = new PHPProfiler(10, 'scoped');
+function findPrimeNumbers($start, $end)
+{
+    $primes = [];
 
-//$profiler->profilerOnCallable(function () {
-//    aFunc();
-//    anotherFunc();
-//});
+    for ($number = $start; $number <= $end; $number++) {
+        $isPrime = true;
 
-//$profiler->profilerOnCallable(['testClass', 'wait']);
+        for ($i = 2; $i <= sqrt($number); $i++) {
+            if ($number % $i == 0) {
+                $isPrime = false;
+                break;
+            }
+        }
 
-//echo $profiler->returnProfiledHtml();
-//echo $profiler->dumpBacktrace();
+        if ($isPrime && $number > 1) {
+            $primes[] = $number;
+        }
+    }
 
-PHPProfiler::globalProfilerOnCallable(function () {
-    aFunc();
-    anotherFunc();
-});
+    return $primes;
+}
 
-PHPProfiler::globalProfilerOnCallable(['testClass', 'wait']);
+function fibonacci($n)
+{
+    if ($n <= 1) {
+        return $n;
+    } else {
+        return fibonacci($n - 1) + fibonacci($n - 2);
+    }
+}
+
+function sortArray($array)
+{
+    $length = count($array);
+
+    for ($i = 0; $i < $length - 1; $i++) {
+        for ($j = 0; $j < $length - $i - 1; $j++) {
+            if ($array[$j] > $array[$j + 1]) {
+                $temp = $array[$j];
+                $array[$j] = $array[$j + 1];
+                $array[$j + 1] = $temp;
+            }
+        }
+    }
+
+    return $array;
+}
+
+
+function callOtherFunctions()
+{
+    PHPProfiler::globalProfilerOnCallable('calculateFactorial', [5]);
+    PHPProfiler::globalProfilerOnCallable('findPrimeNumbers', [0, 300]);
+    PHPProfiler::globalProfilerOnCallable('fibonacci', [10]);
+    PHPProfiler::globalProfilerOnCallable('sortArray', [[5, 2, 8, 1, 0]]);
+}
+
+function callFuncUnderFunc()
+{
+    PHPProfiler::globalProfilerOnCallable('callOtherFunctions');
+}
+
+//PHPProfiler::globalProfilerOnCallable('calculateFactorial', [5]);
+//PHPProfiler::globalProfilerOnCallable('findPrimeNumbers', [0, 300]);
+//PHPProfiler::globalProfilerOnCallable('fibonacci', [10]);
+//PHPProfiler::globalProfilerOnCallable('sortArray', [[5, 2, 8, 1, 0]]);
+
+//PHPProfiler::globalProfilerOnCallable('callOtherFunctions');
+//PHPProfiler::globalProfilerOnCallable('callFuncUnderFunc');
+
+PHPProfiler::globalProfilerOnCallable(['Self', 'globalProfilerOnCallable'], ['callOtherFunctions']);
+
 
 echo PHPProfiler::globalProfilerDumpHtml();
