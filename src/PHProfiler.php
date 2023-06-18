@@ -4,8 +4,19 @@ declare(strict_types=1);
 
 namespace AntCMS;
 
-class PHPProfiler
+class PHProfiler
 {
+    /**
+     * Used to profile any callable object. Will profile the memory usage and time spent on the callable.
+     *      - Memory profiling is only properly functional on PHP 8.2 and newer. On older versions, it will only record the peak memory usage since the start of the script.
+     *      - Memory profiling may not be accurate when profiling functions inside of functions for the parent function.
+     * 
+     * @param callable $callable The callable object you wish to profile.
+     * @param array $args Any arguments you wish to pass to the callable object.
+     * @param string $functionName (optional) PHProfiler will attempt to automatically detect the name of the callable, but you can manually specify it here.
+     * @return mixed Returns whatever the callable object returned.
+     * @throws \Exception If the callable threw an exception
+     */
     public static function profilerOnCallable(callable $callable, array $args = [], string $functionName = ''): mixed
     {
         global $profiledData;
@@ -49,6 +60,19 @@ class PHPProfiler
         return $result;
     }
 
+    public static function getProfiledData(array $removedProperties = ['startTimePoint', 'endTimePoint']): array
+    {
+        global $profiledData;
+        self::processProfilerData($profiledData, $removedProperties);
+
+        return $profiledData;
+    }
+
+    /**
+     * Returns an HTML list of the profiled data.
+     * 
+     * @param array $removedProperties (optional) What profiled properties to remove from the returned HTML. Defaults to 'startTimePoint' and 'endTimePoint'. 
+     */
     public static function returnProfiledHtml(array $removedProperties = ['startTimePoint', 'endTimePoint']): string
     {
         global $profiledData;
