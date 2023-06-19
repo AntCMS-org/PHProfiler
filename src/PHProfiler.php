@@ -19,20 +19,20 @@ class PHProfiler
      */
     public static function profilerOnCallable(callable $callable, array $args = [], string $functionName = ''): mixed
     {
-        global $profiledData;
-
-        if (empty($profiledData)) {
-            $profiledData = [];
+        // Skip profiling if 'PHProfilerSkip' is defined.
+        if (defined('PHProfilerSkip')) {
+            return call_user_func_array($callable, $args);
         }
 
-        $functionName = self::getCallableName($callable, $functionName);
+        global $profiledData;
+        $profiledData ??= [];
         $entryPoint = count($profiledData);
 
+        // Create an initial profile entry for the current callable. This way, the callable itself can call the profilier on something else and the final result will still be in order.
         $loggedData = [
-            'functionName' => $functionName,
+            'functionName' => self::getCallableName($callable, $functionName),
             'startTimePoint' => hrtime(true),
         ];
-
         $profiledData[$entryPoint] = $loggedData;
 
         // Only available on PHP 8.2+, but by doing this, we can much more accurately measure the memory usage of a given function.
@@ -63,9 +63,7 @@ class PHProfiler
     public static function getProfiledData(array $removedProperties = ['startTimePoint', 'endTimePoint']): array
     {
         global $profiledData;
-        self::processProfilerData($profiledData, $removedProperties);
-
-        return $profiledData;
+        return self::processProfilerData($profiledData, $removedProperties);
     }
 
     /**
@@ -77,9 +75,9 @@ class PHProfiler
     {
         global $profiledData;
 
-        self::processProfilerData($profiledData, $removedProperties);
-        /*highlight_string("<?php\n\$data =\n" . var_export($profiledData, true) . ";\n?>");*/
-        return self::displayArrayPropertiesAsHTML($profiledData);
+        $processedData = self::processProfilerData($profiledData, $removedProperties);
+        /*highlight_string("<?php\n\$data =\n" . var_export($processedData, true) . ";\n?>");*/
+        return self::displayArrayPropertiesAsHTML($processedData);
     }
 
     private static function getCallableName(callable $callable, string $functionName): string
@@ -105,7 +103,6 @@ class PHProfiler
             } else {
                 return $callable[0] . $seperator . $callable[1];
             }
-            return $callable[0]::class . '->' . $callable[1];
         } elseif ($callable instanceof \Closure) {
             return 'Closure.' . bin2hex(random_bytes(8));
         } else {
@@ -113,7 +110,7 @@ class PHProfiler
         }
     }
 
-    private static function processProfilerData(array &$data, array $removeProperties = [])
+    private static function processProfilerData(array $data, array $removeProperties = []): array
     {
         $count = count($data);
         for ($i = $count - 1; $i >= 0; $i--) {
@@ -127,15 +124,19 @@ class PHProfiler
             $positionOffset = 1;
             while (($i - $positionOffset) >= 0 && isset($data[$i]) && $start > $data[$i - $positionOffset]['startTimePoint']) {
                 if ($end <= $data[$i - $positionOffset]['endTimePoint']) {
+                    // Create a new copy of the 'calledFunctions' of the current functions caller, then add this function to the first element in it's list (otherwise the result will be backwards)
                     $calledFunctions = $data[$i - $positionOffset]['calledFunctions'];
                     array_unshift($calledFunctions, $data[$i]);
                     $data[$i - $positionOffset]['calledFunctions'] = $calledFunctions;
+
+                    //Then remove the current function from it's outdated position.
                     unset($data[$i]);
                     continue;
                 }
                 $positionOffset++;
             }
         }
+        return $data;
     }
 
     private static function displayArrayPropertiesAsHTML(array $array)
@@ -146,7 +147,7 @@ class PHProfiler
             $html .= '<li>' . $key . ': ';
 
             if (is_array($value)) {
-                $html .= self::displayArrayPropertiesAsHTML($value); // Recursive call for nested arrays
+                $html .= self::displayArrayPropertiesAsHTML($value);
             } else {
                 $html .= $value;
             }
